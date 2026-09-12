@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IR-01 | 3D Robot Explorer</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+:root{--bg0:#010409;--bg1:#0d1117;--bg2:#161b22;--bg3:#21262d;--bd:#30363d;--t1:#f0f6fc;--t2:#c9d1d9;--t3:#8b949e;--t4:#6e7681;--blue:#58a6ff;--green:#3fb950;--yellow:#d29922;--red:#f85149;--purple:#bc8cff;--cyan:#39d2c0;--font:'Inter',sans-serif;--mono:'JetBrains Mono',monospace}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--font);background:var(--bg1);color:var(--t2);overflow:hidden}
+#canvas3d{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0}
+
+/* Nav */
+.nav{position:fixed;top:0;left:0;right:0;z-index:100;height:48px;background:rgba(13,17,23,0.92);border-bottom:1px solid var(--bd);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:space-between;padding:0 20px}
+.nav-brand{display:flex;align-items:center;gap:10px}
+.nav-logo{width:28px;height:28px;background:var(--blue);border-radius:5px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;color:#fff}
+.nav-title{font-weight:600;font-size:14px;color:var(--t1)}
+.nav-tag{font-size:10px;color:var(--t4);background:var(--bg3);padding:2px 6px;border-radius:3px;margin-left:6px}
+.nav-status{display:flex;align-items:center;gap:6px}
+.sdot{width:7px;height:7px;border-radius:50%}
+.sdot.idle{background:var(--t4)}.sdot.active{background:var(--green);animation:pls 1.5s infinite}.sdot.done{background:var(--yellow)}
+@keyframes pls{0%,100%{opacity:1}50%{opacity:.4}}
+.stxt{font-size:12px;font-weight:500}
+
+/* Panels */
+.panel{position:fixed;z-index:10;background:rgba(13,17,23,0.88);border:1px solid var(--bd);border-radius:6px;backdrop-filter:blur(12px);overflow:hidden}
+.panel-hd{padding:8px 12px;border-bottom:1px solid var(--bd);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--t4)}
+.panel-bd{padding:10px 12px}
+
+/* Left */
+.left{top:60px;left:12px;width:240px;max-height:calc(100vh - 72px);overflow-y:auto}
+/* Right */
+.right{top:60px;right:12px;width:260px;max-height:calc(100vh - 72px);overflow-y:auto}
+
+/* Controls */
+.cg{margin-bottom:10px}.cg:last-child{margin-bottom:0}
+.ct{display:flex;justify-content:space-between;margin-bottom:3px}
+.cl{font-size:11px;color:var(--t3)}
+.cv{font-family:var(--mono);font-size:10px;background:var(--bg1);padding:1px 5px;border-radius:3px;color:var(--t2)}
+input[type="range"]{width:100%;height:3px;-webkit-appearance:none;background:var(--bg3);border-radius:2px;outline:none}
+input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;background:var(--blue);border-radius:50%;cursor:pointer;border:2px solid var(--bg2)}
+select,input[type="number"]{width:100%;padding:5px 8px;background:var(--bg1);border:1px solid var(--bd);border-radius:4px;color:var(--t2);font-size:11px;font-family:var(--mono)}
+
+/* Buttons */
+.brow{display:flex;gap:4px;margin-bottom:6px}
+.brow:last-child{margin-bottom:0}
+.btn{flex:1;padding:7px;border:1px solid var(--bd);border-radius:4px;background:var(--bg3);color:var(--t2);font-size:11px;font-weight:500;cursor:pointer;font-family:var(--font);transition:border-color .15s}
+.btn:hover{border-color:var(--t3)}.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-g{background:#238636;border-color:#238636;color:#fff}.btn-g:hover{background:#2ea043}
+.btn-r{background:#da3633;border-color:#da3633;color:#fff}
+
+/* Metrics */
+.mc{padding:10px 12px;border-bottom:1px solid var(--bd)}
+.mc:last-child{border-bottom:none}
+.ml{font-size:10px;color:var(--t4);text-transform:uppercase;letter-spacing:.5px}
+.mr{display:flex;align-items:baseline;justify-content:space-between;margin-top:3px}
+.mv{font-size:24px;font-weight:700;font-family:var(--mono);line-height:1}
+.mu{font-size:11px;color:var(--t4);font-weight:400}
+.m-green{color:var(--green)}.m-yellow{color:var(--yellow)}.m-blue{color:var(--blue)}.m-cyan{color:var(--cyan)}.m-purple{color:var(--purple)}
+.pbar{height:3px;background:var(--bg1);border-radius:2px;margin-top:6px;overflow:hidden}
+.pfill{height:100%;border-radius:2px;transition:width .3s}
+
+/* Spec */
+.sg{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:6px}
+.si{background:var(--bg1);padding:5px;border-radius:3px}
+.sk{font-size:9px;color:var(--t4);text-transform:uppercase;letter-spacing:.3px}
+.sv{font-size:12px;font-weight:600;font-family:var(--mono);color:var(--t2);margin-top:1px}
+
+/* Score table */
+.stbl{width:100%;margin-top:6px;border-collapse:collapse}
+.stbl td{padding:3px 0;font-size:11px;border-bottom:1px solid rgba(48,54,61,.5)}
+.stbl td:first-child{color:var(--t3)}
+.stbl td:nth-child(2){text-align:right;font-family:var(--mono);font-size:10px}
+.stbl td:last-child{text-align:right;font-family:var(--mono);font-size:10px;font-weight:600}
+
+/* Legend bar */
+.legbar{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);z-index:10;display:flex;gap:14px;background:rgba(13,17,23,.88);padding:6px 14px;border-radius:5px;border:1px solid var(--bd);backdrop-filter:blur(12px)}
+.leg{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--t4)}
+.legc{width:8px;height:8px;border-radius:2px}
+
+/* Help hint */
+.hint{position:fixed;bottom:44px;left:50%;transform:translateX(-50%);z-index:10;font-size:10px;color:var(--t4)}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:var(--bg1)}::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:2px}
+</style>
+</head>
+<body>
+
+<canvas id="canvas3d"></canvas>
+
+<!-- Nav -->
+<nav class="nav">
+  <div class="nav-brand">
+    <div class="nav-logo">IR</div>
+    <span class="nav-title">3D Grid Explorer</span>
+    <span class="nav-tag">IR-01</span>
+  </div>
+  <div class="nav-status">
+    <div class="sdot idle" id="sdot"></div>
+    <span class="stxt" id="stxt">Ready</span>
+  </div>
+</nav>
+
+<!-- Left Panel -->
+<div class="panel left">
+  <div class="panel-hd">Controls</div>
+  <div class="panel-bd">
+    <div class="brow">
+      <button class="btn btn-g" id="btn-start" onclick="doStart()">Start</button>
+      <button class="btn btn-r" id="btn-stop" onclick="doStop()" disabled>Stop</button>
+    </div>
+    <div class="brow"><button class="btn" onclick="doReset()">Reset</button></div>
+  </div>
+  
+  <div class="panel-hd">Environment</div>
+  <div class="panel-bd">
+    <div class="cg"><div class="ct"><span class="cl">Grid Size</span><span class="cv" id="v-grid">30x30</span></div><input type="range" id="s-grid" min="15" max="50" value="30" oninput="updGrid()"></div>
+    <div class="cg"><div class="ct"><span class="cl">Obstacles</span><span class="cv" id="v-obs">20%</span></div><input type="range" id="s-obs" min="5" max="40" value="20" oninput="document.getElementById('v-obs').textContent=this.value+'%'"></div>
+    <div class="cg"><div class="ct"><span class="cl">Sensing</span><span class="cv" id="v-sen">2</span></div><input type="range" id="s-sen" min="1" max="5" value="2" oninput="document.getElementById('v-sen').textContent=this.value"></div>
+  </div>
+  
+  <div class="panel-hd">Robot</div>
+  <div class="panel-bd">
+    <div class="cg"><div class="ct"><span class="cl">Energy</span><span class="cv" id="v-eng">400</span></div><input type="range" id="s-eng" min="50" max="800" value="400" step="10" oninput="document.getElementById('v-eng').textContent=this.value"></div>
+    <div class="cg"><div class="ct"><span class="cl">Speed</span><span class="cv" id="v-spd">Fast</span></div>
+      <select id="s-spd" onchange="var m={'0.01':'Turbo','0.03':'Fast','0.1':'Normal','0.3':'Slow'};document.getElementById('v-spd').textContent=m[this.value]||'Fast'">
+        <option value="0.01">Turbo</option><option value="0.03" selected>Fast</option><option value="0.1">Normal</option><option value="0.3">Slow</option>
+      </select>
+    </div>
+    <div class="cg"><div class="ct"><span class="cl">Seed</span></div><input type="number" id="s-seed" value="20260911"></div>
+  </div>
+  
+  <div class="panel-hd">Spec</div>
+  <div class="panel-bd">
+    <div class="sg">
+      <div class="si"><div class="sk">Grid</div><div class="sv">30x30</div></div>
+      <div class="si"><div class="sk">Base</div><div class="sv">(0,0)</div></div>
+      <div class="si"><div class="sk">Energy</div><div class="sv">400</div></div>
+      <div class="si"><div class="sk">Cost</div><div class="sv">1/move</div></div>
+      <div class="si"><div class="sk">Sense</div><div class="sv">Manhattan 2</div></div>
+      <div class="si"><div class="sk">Obstacles</div><div class="sv">20%</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Right Panel -->
+<div class="panel right">
+  <div class="panel-hd">Metrics</div>
+  <div class="mc">
+    <div class="ml">Coverage (Ck)</div>
+    <div class="mr"><div class="mv m-green" id="m-cov">0.0<span class="mu">%</span></div></div>
+    <div class="pbar"><div class="pfill" id="bar-cov" style="width:0%;background:var(--green)"></div></div>
+    <div style="margin-top:4px;font-size:10px;color:var(--t4)">free cells observed / total reachable</div>
+  </div>
+  <div class="mc">
+    <div class="ml">Energy (Ek)</div>
+    <div class="mr"><div class="mv m-yellow" id="m-eng">400<span class="mu"> / 400</span></div></div>
+    <div class="pbar"><div class="pfill" id="bar-eng" style="width:100%;background:var(--yellow)"></div></div>
+  </div>
+  <div class="mc">
+    <div class="ml">Steps</div>
+    <div class="mr"><div class="mv m-blue" id="m-stp">0</div></div>
+  </div>
+  <div class="mc">
+    <div class="ml">Revealed</div>
+    <div class="mr"><div class="mv m-cyan" id="m-rev">0<span class="mu"> / 0</span></div></div>
+  </div>
+  <div class="mc">
+    <div class="ml">Scoring (100 pts)</div>
+    <table class="stbl">
+      <tr><td>Coverage (55)</td><td id="s-cv">--</td><td id="s-cvp">-</td></tr>
+      <tr><td>Return (20)</td><td id="s-rt">--</td><td id="s-rtp">-</td></tr>
+      <tr><td>Ck*Ek (15)</td><td id="s-ck">--</td><td id="s-ckp">-</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- Legend -->
+<div class="legbar">
+  <div class="leg"><div class="legc" style="background:var(--purple)"></div>Base</div>
+  <div class="leg"><div class="legc" style="background:var(--yellow)"></div>Robot</div>
+  <div class="leg"><div class="legc" style="background:var(--green)"></div>Free</div>
+  <div class="leg"><div class="legc" style="background:var(--red)"></div>Wall</div>
+  <div class="leg"><div class="legc" style="background:#0c3a4a"></div>Trail</div>
+</div>
+<div class="hint">Drag to orbit | Scroll to zoom</div>
+
+<script>
+let gridSz=30,pollId=null,simRun=false,scene,camera,renderer,robotMesh,baseMesh,cells={},trailMeshes=[];
+
+function setStatus(s,t){document.getElementById('sdot').className='sdot '+s;document.getElementById('stxt').textContent=t}
+
+/* ===== THREE.JS ===== */
+function init3D(){
+  scene=new THREE.Scene();scene.background=new THREE.Color(0x010409);scene.fog=new THREE.FogExp2(0x010409,0.012);
+  camera=new THREE.PerspectiveCamera(45,innerWidth/innerHeight,0.1,200);
+  camera.position.set(gridSz*0.8,gridSz*1.0,gridSz*0.8);camera.lookAt(gridSz/2,0,gridSz/2);
+  renderer=new THREE.WebGLRenderer({canvas:document.getElementById('canvas3d'),antialias:true});
+  renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+  
+  // Lights
+  scene.add(new THREE.AmbientLight(0x404060,0.5));
+  const dl=new THREE.DirectionalLight(0xffffff,0.7);dl.position.set(20,30,20);dl.castShadow=true;
+  dl.shadow.mapSize.set(2048,2048);dl.shadow.camera.near=0.5;dl.shadow.camera.far=80;
+  dl.shadow.camera.left=-30;dl.shadow.camera.right=30;dl.shadow.camera.top=30;dl.shadow.camera.bottom=-30;
+  scene.add(dl);
+  const pl=new THREE.PointLight(0x58a6ff,0.4,40);pl.position.set(gridSz/2,15,gridSz/2);scene.add(pl);
+  
+  // Ground
+  const gnd=new THREE.Mesh(new THREE.PlaneGeometry(gridSz+6,gridSz+6),new THREE.MeshStandardMaterial({color:0x080b10,roughness:0.9}));
+  gnd.rotation.x=-Math.PI/2;gnd.position.set(gridSz/2-0.5,-0.05,gridSz/2-0.5);gnd.receiveShadow=true;scene.add(gnd);
+  
+  // Grid lines
+  const gh=new THREE.GridHelper(gridSz,gridSz,0x151b24,0x151b24);gh.position.set(gridSz/2-0.5,0.01,gridSz/2-0.5);scene.add(gh);
+  
+  // Robot
+  const rg=new THREE.Group();
+  const body=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.35,0.5),new THREE.MeshStandardMaterial({color:0xd29922,roughness:0.3,metalness:0.6,emissive:0xd29922,emissiveIntensity:0.3}));
+  body.position.y=0.25;body.castShadow=true;rg.add(body);
+  const sensor=new THREE.Mesh(new THREE.SphereGeometry(0.15,16,16),new THREE.MeshStandardMaterial({color:0x58a6ff,roughness:0.2,emissive:0x58a6ff,emissiveIntensity:0.6,transparent:true,opacity:0.8}));
+  sensor.position.y=0.5;rg.add(sensor);
+  const ring=new THREE.Mesh(new THREE.RingGeometry(0.4,0.44,32),new THREE.MeshBasicMaterial({color:0xd29922,transparent:true,opacity:0.3,side:2}));
+  ring.rotation.x=-Math.PI/2;ring.position.y=0.03;rg.add(ring);
+  // Wheels
+  const wg=new THREE.CylinderGeometry(0.1,0.1,0.08,10);const wm=new THREE.MeshStandardMaterial({color:0x21262d});
+  [[-0.25,0.1,0.25],[0.25,0.1,0.25],[-0.25,0.1,-0.25],[0.25,0.1,-0.25]].forEach(p=>{const w=new THREE.Mesh(wg,wm);w.position.set(...p);w.rotation.z=Math.PI/2;rg.add(w)});
+  robotMesh=rg;scene.add(rg);
+  
+  // Base
+  const bg=new THREE.Group();
+  const bm=new THREE.Mesh(new THREE.CylinderGeometry(0.35,0.45,0.15,6),new THREE.MeshStandardMaterial({color:0xbc8cff,emissive:0xbc8cff,emissiveIntensity:0.4,roughness:0.3}));
+  bm.position.y=0.075;bm.castShadow=true;bg.add(bm);
+  const br=new THREE.Mesh(new THREE.RingGeometry(0.45,0.48,32),new THREE.MeshBasicMaterial({color:0xbc8cff,transparent:true,opacity:0.25,side:2}));
+  br.rotation.x=-Math.PI/2;br.position.y=0.01;bg.add(br);
+  baseMesh=bg;scene.add(bg);
+  
+  setupControls();animate();
+}
+
+function setupControls(){
+  let drag=false,prev={x:0,y:0},sph={theta:Math.PI/4,phi:Math.PI/3.5,r:gridSz*1.2};
+  let tgt=new THREE.Vector3(gridSz/2,0,gridSz/2);
+  function updCam(){
+    camera.position.x=tgt.x+sph.r*Math.sin(sph.phi)*Math.cos(sph.theta);
+    camera.position.y=tgt.y+sph.r*Math.cos(sph.phi);
+    camera.position.z=tgt.z+sph.r*Math.sin(sph.phi)*Math.sin(sph.theta);
+    camera.lookAt(tgt);
+  }
+  const el=renderer.domElement;
+  el.addEventListener('mousedown',e=>{drag=true;prev={x:e.clientX,y:e.clientY}});
+  el.addEventListener('mousemove',e=>{if(!drag)return;sph.theta-=(e.clientX-prev.x)*.005;sph.phi=Math.max(.1,Math.min(1.5,sph.phi+(e.clientY-prev.y)*.005));prev={x:e.clientX,y:e.clientY};updCam()});
+  el.addEventListener('mouseup',()=>drag=false);el.addEventListener('mouseleave',()=>drag=false);
+  el.addEventListener('wheel',e=>{sph.r=Math.max(8,Math.min(60,sph.r+e.deltaY*.04));updCam();e.preventDefault()},{passive:false});
+  el.addEventListener('contextmenu',e=>e.preventDefault());
+  updCam();
+}
+
+function buildGrid(){
+  if(!scene)return;
+  Object.values(cells).forEach(m=>scene.remove(m));cells={};
+  trailMeshes.forEach(m=>scene.remove(m));trailMeshes=[];
+  const ug=new THREE.BoxGeometry(.8,.12,.8);const um=new THREE.MeshStandardMaterial({color:0x151b24,roughness:0.9});
+  for(let x=0;x<gridSz;x++)for(let y=0;y<gridSz;y++){
+    const m=new THREE.Mesh(ug,um.clone());m.position.set(x,.06,y);m.receiveShadow=true;scene.add(m);cells[x+','+y]=m;
+  }
+}
+
+function updGrid(){
+  const v=+document.getElementById('s-grid').value;gridSz=v;
+  document.getElementById('v-grid').textContent=v+'x'+v;buildGrid();
+  camera.position.set(v*.8,v*1.0,v*.8);camera.lookAt(v/2,0,v/2);
+}
+
+function draw3D(s){
+  const rev=s.revealed||{};const vis=new Set((s.trajectory||[]).map(p=>p[0]+','+p[1]));
+  const px=(s.position||[])[0],py=(s.position||[])[1];
+  for(let x=0;x<gridSz;x++)for(let y=0;y<gridSz;y++){
+    const m=cells[x+','+y];if(!m)continue;const k=x+','+y;const r=rev[k];
+    if(r!==undefined){
+      if(r===0){
+        const c=vis.has(k)?0x0c3a4a:0x1a5a30;
+        m.material.color.setHex(c);m.material.emissive=new THREE.Color(c);m.material.emissiveIntensity=.15;m.scale.y=1;
+      } else {m.material.color.setHex(0x7a1a1a);m.material.emissive=new THREE.Color(0xf85149);m.material.emissiveIntensity=.25;m.scale.y=3.5;}
+    } else {m.material.color.setHex(0x151b24);m.material.emissiveIntensity=0;m.scale.y=1;}
+  }
+  // Trail
+  trailMeshes.forEach(m=>scene.remove(m));trailMeshes=[];
+  const tr=s.trajectory||[];
+  if(tr.length>1){
+    const pts=tr.map(p=>new THREE.Vector3(p[0],.08,p[1]));
+    const crv=new THREE.CatmullRomCurve3(pts);
+    const tg=new THREE.TubeGeometry(crv,Math.min(tr.length*3,500),.04,6,false);
+    const tm=new THREE.MeshBasicMaterial({color:0x39d2c0,transparent:true,opacity:.4});
+    const t=new THREE.Mesh(tg,tm);scene.add(t);trailMeshes.push(t);
+  }
+  // Robot
+  robotMesh.position.set(px,0,py);
+  const t=Date.now()*.003;robotMesh.children[1].scale.setScalar(1+Math.sin(t)*.08);
+  robotMesh.children[2].material.opacity=.2+Math.sin(t)*.1;
+  if(tr.length>=2){const l=tr[tr.length-1],p=tr[tr.length-2];robotMesh.rotation.y=-Math.atan2(l[1]-p[1],l[0]-p[0])+Math.PI/2;}
+}
+
+function drawMetrics(s){
+  const cov=((s.coverage||0)*100);const eng=s.energy||0;const mx=s.max_energy||400;
+  const fr=Object.values(s.revealed||{}).filter(v=>v===0).length;const tot=s.total_reachable||0;const ek=eng/mx;
+  document.getElementById('m-cov').innerHTML=cov.toFixed(1)+'<span class="mu">%</span>';
+  document.getElementById('bar-cov').style.width=cov+'%';
+  document.getElementById('m-eng').innerHTML=eng+'<span class="mu"> / '+mx+'</span>';
+  document.getElementById('bar-eng').style.width=(eng/mx*100)+'%';
+  document.getElementById('m-stp').textContent=s.step||0;
+  document.getElementById('m-rev').innerHTML=fr+'<span class="mu"> / '+tot+'</span>';
+  const cek=(s.coverage||0)*ek;
+  document.getElementById('s-cv').textContent=cov.toFixed(1)+'%';
+  document.getElementById('s-cvp').textContent=(cov/100*55).toFixed(1);
+  document.getElementById('s-cvp').className=cov>90?'m-green':cov>70?'m-yellow':'m-red';
+  document.getElementById('s-rt').textContent=s.is_done?'Yes':'--';
+  document.getElementById('s-rtp').textContent=s.is_done?'20.0':'-';
+  document.getElementById('s-rtp').className=s.is_done?'m-green':'m-red';
+  document.getElementById('s-ck').textContent=cek.toFixed(4);
+  document.getElementById('s-ckp').textContent=(cek*15).toFixed(2);
+}
+
+function animate(){requestAnimationFrame(animate);if(baseMesh)baseMesh.children[0].rotation.y+=.008;renderer.render(scene,camera)}
+
+/* ===== CONTROLS ===== */
+function poll(){
+  if(!simRun)return;
+  fetch('/api/state').then(r=>r.json()).then(s=>{
+    if(!simRun)return;draw3D(s);drawMetrics(s);
+    if(s.is_done){setStatus('done','Done - '+((s.coverage||0)*100).toFixed(1)+'%');document.getElementById('btn-start').disabled=false;document.getElementById('btn-stop').disabled=true;simRun=false;if(pollId){clearInterval(pollId);pollId=null}}
+    else if(s.is_running){setStatus('active','Exploring...');document.getElementById('btn-start').disabled=true;document.getElementById('btn-stop').disabled=false}
+  }).catch(()=>{});
+}
+
+function doStart(){
+  if(simRun)return;
+  const p={grid_size:+document.getElementById('s-grid').value,energy:+document.getElementById('s-eng').value,obstacle:+document.getElementById('s-obs').value/100,sensing:+document.getElementById('s-sen').value,speed:+document.getElementById('s-spd').value,seed:+document.getElementById('s-seed').value};
+  gridSz=p.grid_size;buildGrid();simRun=true;
+  fetch('/api/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)}).then(()=>{setStatus('active','Starting...');if(!pollId)pollId=setInterval(poll,80)}).catch(()=>{simRun=false});
+}
+function doStop(){if(!simRun)return;fetch('/api/stop',{method:'POST'}).then(()=>{simRun=false;if(pollId){clearInterval(pollId);pollId=null}setStatus('done','Stopped');document.getElementById('btn-start').disabled=false;document.getElementById('btn-stop').disabled=true})}
+function doReset(){
+  simRun=false;if(pollId){clearInterval(pollId);pollId=null}
+  fetch('/api/reset',{method:'POST'}).then(()=>{
+    buildGrid();setStatus('idle','Ready');document.getElementById('btn-start').disabled=false;document.getElementById('btn-stop').disabled=true;
+    document.getElementById('m-cov').innerHTML='0.0<span class="mu">%</span>';document.getElementById('bar-cov').style.width='0%';
+    document.getElementById('m-eng').innerHTML='400<span class="mu"> / 400</span>';document.getElementById('bar-eng').style.width='100%';
+    document.getElementById('m-stp').textContent='0';document.getElementById('m-rev').innerHTML='0<span class="mu"> / 0</span>';
+    ['s-cv','s-rt','s-ck'].forEach(id=>document.getElementById(id).textContent='--');
+    ['s-cvp','s-rtp','s-ckp'].forEach(id=>document.getElementById(id).textContent='-');
+  });
+}
+
+window.addEventListener('resize',()=>{if(camera&&renderer){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)}});
+try{init3D();buildGrid()}catch(e){document.body.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#f85149;font-family:sans-serif;text-align:center;padding:20px"><div><h1 style="margin-bottom:10px">WebGL Error</h1><p>3D rendering failed. Use 2D dashboard instead.</p><p style="color:#8b949e;margin-top:10px">'+e.message+'</p></div></div>'}
+</script>
+</body>
+</html>

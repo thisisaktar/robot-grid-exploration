@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IR-01 | Robot Grid Exploration</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-0: #010409; --bg-1: #0d1117; --bg-2: #161b22; --bg-3: #21262d;
+            --border: #30363d; --border-light: #21262d;
+            --text-1: #f0f6fc; --text-2: #c9d1d9; --text-3: #8b949e; --text-4: #6e7681;
+            --blue: #58a6ff; --green: #3fb950; --yellow: #d29922; --red: #f85149;
+            --purple: #bc8cff; --cyan: #39d2c0;
+            --font: 'Inter', -apple-system, sans-serif;
+            --mono: 'JetBrains Mono', monospace;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: var(--font); background: var(--bg-1); color: var(--text-2); }
+        
+        /* === TOP NAV === */
+        .nav { background: var(--bg-2); border-bottom: 1px solid var(--border); padding: 0 24px; height: 56px; display: flex; align-items: center; justify-content: space-between; }
+        .nav-brand { display: flex; align-items: center; gap: 12px; }
+        .nav-logo { width: 32px; height: 32px; background: var(--blue); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; color: #fff; }
+        .nav-title { font-weight: 600; font-size: 15px; color: var(--text-1); }
+        .nav-tag { font-size: 11px; color: var(--text-4); margin-left: 8px; background: var(--bg-3); padding: 2px 8px; border-radius: 4px; }
+        .nav-status { display: flex; align-items: center; gap: 8px; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+        .status-dot.idle { background: var(--text-4); }
+        .status-dot.active { background: var(--green); animation: pulse 1.5s infinite; }
+        .status-dot.done { background: var(--yellow); }
+        .status-text { font-size: 13px; font-weight: 500; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+        
+        /* === LAYOUT === */
+        .layout { display: grid; grid-template-columns: 260px 1fr 300px; height: calc(100vh - 56px); }
+        
+        /* === SIDEBAR === */
+        .sidebar { background: var(--bg-2); border-right: 1px solid var(--border); overflow-y: auto; }
+        .sb-section { padding: 16px; border-bottom: 1px solid var(--border); }
+        .sb-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-4); margin-bottom: 12px; }
+        
+        .sb-btn-row { display: flex; gap: 6px; }
+        .sb-btn { flex: 1; padding: 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-3); color: var(--text-2); font-size: 12px; font-weight: 500; cursor: pointer; font-family: var(--font); transition: border-color 0.15s; }
+        .sb-btn:hover { border-color: var(--text-3); }
+        .sb-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .sb-btn.primary { background: #238636; border-color: #238636; color: #fff; }
+        .sb-btn.primary:hover { background: #2ea043; }
+        .sb-btn.danger { background: #da3633; border-color: #da3633; color: #fff; }
+        
+        .ctrl { margin-bottom: 14px; }
+        .ctrl:last-child { margin-bottom: 0; }
+        .ctrl-top { display: flex; justify-content: space-between; margin-bottom: 5px; }
+        .ctrl-label { font-size: 12px; color: var(--text-3); }
+        .ctrl-val { font-family: var(--mono); font-size: 11px; background: var(--bg-1); padding: 1px 6px; border-radius: 3px; color: var(--text-2); }
+        input[type="range"] { width: 100%; height: 3px; -webkit-appearance: none; background: var(--bg-3); border-radius: 2px; outline: none; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; background: var(--blue); border-radius: 50%; cursor: pointer; border: 2px solid var(--bg-2); }
+        select, input[type="number"] { width: 100%; padding: 6px 10px; background: var(--bg-1); border: 1px solid var(--border); border-radius: 4px; color: var(--text-2); font-size: 12px; font-family: var(--mono); }
+        
+        /* === CENTER === */
+        .center { display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--bg-0); position: relative; overflow: hidden; }
+        .grid-wrap { position: relative; }
+        .grid { display: grid; gap: 1px; background: #080b10; padding: 6px; border-radius: 4px; }
+        .c { width: 13px; height: 13px; border-radius: 1px; transition: background 0.08s; }
+        .c-u { background: #151b24; }
+        .c-f { background: #0d2818; }
+        .c-o { background: #2d1214; }
+        .c-rf { background: var(--green); box-shadow: 0 0 3px rgba(63,185,80,0.3); }
+        .c-ro { background: var(--red); }
+        .c-v { background: #0c3a4a; }
+        .c-bot { background: var(--purple); box-shadow: 0 0 6px rgba(188,140,255,0.4); }
+        .c-robot { background: var(--yellow); border-radius: 50%; box-shadow: 0 0 10px rgba(210,153,34,0.7); animation: rpulse 1s infinite; }
+        @keyframes rpulse { 0%,100%{box-shadow:0 0 10px rgba(210,153,34,0.7)} 50%{box-shadow:0 0 18px rgba(210,153,34,1)} }
+        
+        /* Scale selector */
+        .scale-bar { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; gap: 16px; background: rgba(13,17,23,0.9); padding: 8px 16px; border-radius: 6px; border: 1px solid var(--border); }
+        .scale-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-4); }
+        .scale-swatch { width: 10px; height: 10px; border-radius: 2px; }
+        
+        /* === RIGHT PANEL === */
+        .right { background: var(--bg-2); border-left: 1px solid var(--border); overflow-y: auto; }
+        
+        .metric-card { padding: 14px 16px; border-bottom: 1px solid var(--border); }
+        .metric-card:last-child { border-bottom: none; }
+        .metric-label { font-size: 11px; color: var(--text-4); text-transform: uppercase; letter-spacing: 0.5px; }
+        .metric-row { display: flex; align-items: baseline; justify-content: space-between; margin-top: 4px; }
+        .metric-big { font-size: 28px; font-weight: 700; font-family: var(--mono); line-height: 1; }
+        .metric-unit { font-size: 13px; color: var(--text-4); font-weight: 400; }
+        .m-green { color: var(--green); } .m-yellow { color: var(--yellow); }
+        .m-blue { color: var(--blue); } .m-purple { color: var(--purple); }
+        .m-red { color: var(--red); } .m-cyan { color: var(--cyan); }
+        .progress { height: 3px; background: var(--bg-1); border-radius: 2px; margin-top: 8px; overflow: hidden; }
+        .progress-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
+        
+        /* Scoring */
+        .score-table { width: 100%; margin-top: 8px; }
+        .score-table td { padding: 4px 0; font-size: 12px; border-bottom: 1px solid var(--border-light); }
+        .score-table td:first-child { color: var(--text-3); }
+        .score-table td:nth-child(2) { text-align: right; font-family: var(--mono); font-size: 11px; }
+        .score-table td:last-child { text-align: right; font-family: var(--mono); font-size: 11px; font-weight: 600; }
+        
+        /* Algorithm info */
+        .algo-info { font-size: 12px; color: var(--text-3); line-height: 1.6; }
+        .algo-info strong { color: var(--text-2); }
+        .algo-step { display: flex; gap: 8px; margin-bottom: 6px; }
+        .algo-num { width: 18px; height: 18px; background: var(--bg-3); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; color: var(--blue); flex-shrink: 0; margin-top: 1px; }
+        
+        /* Problem spec */
+        .spec-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+        .spec-item { background: var(--bg-1); padding: 8px; border-radius: 4px; }
+        .spec-key { font-size: 10px; color: var(--text-4); text-transform: uppercase; letter-spacing: 0.5px; }
+        .spec-val { font-size: 14px; font-weight: 600; font-family: var(--mono); color: var(--text-2); margin-top: 2px; }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <div class="nav-brand">
+            <div class="nav-logo">IR</div>
+            <span class="nav-title">Grid Explorer</span>
+            <span class="nav-tag">IR-01</span>
+        </div>
+        <div class="nav-status">
+            <div class="status-dot idle" id="status-dot"></div>
+            <span class="status-text" id="status-text">Ready</span>
+        </div>
+    </nav>
+    
+    <div class="layout">
+        <!-- LEFT: Controls -->
+        <aside class="sidebar">
+            <div class="sb-section">
+                <div class="sb-title">Controls</div>
+                <div class="sb-btn-row">
+                    <button class="sb-btn primary" id="btn-start" onclick="doStart()">Start</button>
+                    <button class="sb-btn danger" id="btn-stop" onclick="doStop()" disabled>Stop</button>
+                </div>
+                <div class="sb-btn-row" style="margin-top:6px">
+                    <button class="sb-btn" onclick="doReset()">Reset</button>
+                </div>
+            </div>
+            
+            <div class="sb-section">
+                <div class="sb-title">Environment</div>
+                <div class="ctrl">
+                    <div class="ctrl-top"><span class="ctrl-label">Grid Size</span><span class="ctrl-val" id="v-grid">30 x 30</span></div>
+                    <input type="range" id="s-grid" min="15" max="50" value="30" oninput="updGrid()">
+                </div>
+                <div class="ctrl">
+                    <div class="ctrl-top"><span class="ctrl-label">Obstacle Density</span><span class="ctrl-val" id="v-obs">20%</span></div>
+                    <input type="range" id="s-obs" min="5" max="40" value="20" oninput="document.getElementById('v-obs').textContent=this.value+'%'">
+                </div>
+                <div class="ctrl">
+                    <div class="ctrl-top"><span class="ctrl-label">Sensing Radius</span><span class="ctrl-val" id="v-sense">2</span></div>
+                    <input type="range" id="s-sense" min="1" max="5" value="2" oninput="document.getElementById('v-sense').textContent=this.value">
+                </div>
+            </div>
+            
+            <div class="sb-section">
+                <div class="sb-title">Robot</div>
+                <div class="ctrl">
+                    <div class="ctrl-top"><span class="ctrl-label">Energy Budget</span><span class="ctrl-val" id="v-eng">400</span></div>
+                    <input type="range" id="s-eng" min="50" max="800" value="400" step="10" oninput="document.getElementById('v-eng').textContent=this.value">
+                </div>
+                <div class="ctrl">
+                    <div class="ctrl-top"><span class="ctrl-label">Speed</span><span class="ctrl-val" id="v-speed">Fast</span></div>
+                    <select id="s-speed" onchange="var m={'0.01':'Turbo','0.03':'Fast','0.1':'Normal','0.3':'Slow'};document.getElementById('v-speed').textContent=m[this.value]||'Fast'">
+                        <option value="0.01">Turbo (10ms)</option>
+                        <option value="0.03" selected>Fast (30ms)</option>
+                        <option value="0.1">Normal (100ms)</option>
+                        <option value="0.3">Slow (300ms)</option>
+                    </select>
+                </div>
+                <div class="ctrl">
+                    <div class="ctrl-top"><span class="ctrl-label">Map Seed</span></div>
+                    <input type="number" id="s-seed" value="20260911">
+                </div>
+            </div>
+            
+            <div class="sb-section">
+                <div class="sb-title">Problem Specification</div>
+                <div class="spec-grid">
+                    <div class="spec-item"><div class="spec-key">Grid</div><div class="spec-val">30x30</div></div>
+                    <div class="spec-item"><div class="spec-key">Base</div><div class="spec-val">(0, 0)</div></div>
+                    <div class="spec-item"><div class="spec-key">Energy</div><div class="spec-val">400</div></div>
+                    <div class="spec-item"><div class="spec-key">Move Cost</div><div class="spec-val">1</div></div>
+                    <div class="spec-item"><div class="spec-key">Sensing</div><div class="spec-val">Manhattan 2</div></div>
+                    <div class="spec-item"><div class="spec-key">Obstacles</div><div class="spec-val">20%</div></div>
+                </div>
+            </div>
+        </aside>
+        
+        <!-- CENTER: Grid -->
+        <div class="center">
+            <div class="grid-wrap">
+                <div class="grid" id="grid"></div>
+            </div>
+            <div class="scale-bar">
+                <div class="scale-item"><div class="scale-swatch" style="background:var(--purple)"></div>Base</div>
+                <div class="scale-item"><div class="scale-swatch" style="background:var(--yellow)"></div>Robot</div>
+                <div class="scale-item"><div class="scale-swatch" style="background:var(--green)"></div>Free</div>
+                <div class="scale-item"><div class="scale-swatch" style="background:var(--red)"></div>Obstacle</div>
+                <div class="scale-item"><div class="scale-swatch" style="background:#0c3a4a"></div>Visited</div>
+                <div class="scale-item"><div class="scale-swatch" style="background:#151b24"></div>Unknown</div>
+            </div>
+        </div>
+        
+        <!-- RIGHT: Metrics & Info -->
+        <aside class="right">
+            <div class="metric-card">
+                <div class="metric-label">Exploration Coverage</div>
+                <div class="metric-row">
+                    <div class="metric-big m-green" id="m-cov">0.0<span class="metric-unit">%</span></div>
+                </div>
+                <div class="progress"><div class="progress-fill" id="bar-cov" style="width:0%;background:var(--green)"></div></div>
+                <div style="margin-top:6px;font-size:11px;color:var(--text-4)">reachable free cells observed / total reachable</div>
+            </div>
+            
+            <div class="metric-card">
+                <div class="metric-label">Energy Remaining</div>
+                <div class="metric-row">
+                    <div class="metric-big m-yellow" id="m-eng">400<span class="metric-unit"> / 400</span></div>
+                </div>
+                <div class="progress"><div class="progress-fill" id="bar-eng" style="width:100%;background:var(--yellow)"></div></div>
+                <div style="margin-top:6px;font-size:11px;color:var(--text-4)">each move costs 1 unit</div>
+            </div>
+            
+            <div class="metric-card">
+                <div class="metric-label">Steps Taken</div>
+                <div class="metric-row">
+                    <div class="metric-big m-blue" id="m-steps">0</div>
+                </div>
+            </div>
+            
+            <div class="metric-card">
+                <div class="metric-label">Cells Revealed</div>
+                <div class="metric-row">
+                    <div class="metric-big m-cyan" id="m-rev">0<span class="metric-unit"> / 0</span></div>
+                </div>
+            </div>
+            
+            <div class="metric-card">
+                <div class="metric-label">Scoring Breakdown (100 pts)</div>
+                <table class="score-table">
+                    <tr><td>Coverage (55 pts)</td><td id="s-cov">--</td><td id="s-cov-p">-</td></tr>
+                    <tr><td>Return Rate (20 pts)</td><td id="s-ret">--</td><td id="s-ret-p">-</td></tr>
+                    <tr><td>Ck x Ek (15 pts)</td><td id="s-cek">--</td><td id="s-cek-p">-</td></tr>
+                    <tr><td>Runtime (5 pts)</td><td colspan="2" id="s-run">-</td></tr>
+                </table>
+            </div>
+            
+            <div class="metric-card">
+                <div class="metric-label">Algorithm: Info-Gain Frontier</div>
+                <div class="algo-info">
+                    <div class="algo-step"><div class="algo-num">1</div><div>Detect <strong>frontiers</strong> - free cells next to unknown space</div></div>
+                    <div class="algo-step"><div class="algo-num">2</div><div>Score by <strong>info_gain / distance</strong> - cells per step</div></div>
+                    <div class="algo-step"><div class="algo-num">3</div><div>Check <strong>energy safety</strong> - can return to base?</div></div>
+                    <div class="algo-step"><div class="algo-num">4</div><div>Move to <strong>best frontier</strong> via BFS shortest path</div></div>
+                    <div class="algo-step"><div class="algo-num">5</div><div><strong>Emergency return</strong> when energy = dist + 5</div></div>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+<script>
+let gridSz = 30, pollId = null, simRunning = false;
+
+function buildGrid(sz) {
+    gridSz = sz;
+    const g = document.getElementById('grid');
+    g.style.gridTemplateColumns = `repeat(${sz}, 13px)`;
+    g.innerHTML = '';
+    for (let x = 0; x < sz; x++)
+        for (let y = 0; y < sz; y++) {
+            const d = document.createElement('div');
+            d.className = 'c c-u'; d.id = `c${x}_${y}`;
+            g.appendChild(d);
+        }
+}
+
+function updGrid() {
+    const v = +document.getElementById('s-grid').value;
+    document.getElementById('v-grid').textContent = `${v} x ${v}`;
+    buildGrid(v);
+}
+
+function setStatus(state, text) {
+    document.getElementById('status-dot').className = 'status-dot ' + state;
+    document.getElementById('status-text').textContent = text;
+}
+
+function drawGrid(s) {
+    const vis = new Set((s.trajectory||[]).map(p=>p[0]+','+p[1]));
+    const rev = s.revealed || {};
+    const px = (s.position||[])[0], py = (s.position||[])[1];
+    for (let x = 0; x < gridSz; x++)
+        for (let y = 0; y < gridSz; y++) {
+            const el = document.getElementById(`c${x}_${y}`);
+            if (!el) continue;
+            const k = x+','+y;
+            if (x===px && y===py) el.className = 'c c-robot';
+            else if (x===0 && y===0) el.className = 'c c-bot';
+            else if (rev[k]!==undefined) el.className = rev[k]===0 ? (vis.has(k)?'c c-v':'c c-rf') : 'c c-ro';
+            else el.className = 'c c-u';
+        }
+}
+
+function drawMetrics(s) {
+    const cov = ((s.coverage||0)*100);
+    const eng = s.energy||0, maxE = s.max_energy||400;
+    const freeRev = Object.values(s.revealed||{}).filter(v=>v===0).length;
+    const total = s.total_reachable||0;
+    const ek = eng/maxE;
+    
+    document.getElementById('m-cov').innerHTML = cov.toFixed(1)+'<span class="metric-unit">%</span>';
+    document.getElementById('bar-cov').style.width = cov+'%';
+    document.getElementById('m-eng').innerHTML = eng+'<span class="metric-unit"> / '+maxE+'</span>';
+    document.getElementById('bar-eng').style.width = (eng/maxE*100)+'%';
+    document.getElementById('m-steps').textContent = s.step||0;
+    document.getElementById('m-rev').innerHTML = freeRev+'<span class="metric-unit"> / '+total+'</span>';
+    
+    // Scoring
+    const cek = (s.coverage||0) * ek;
+    document.getElementById('s-cov').textContent = cov.toFixed(1)+'%';
+    document.getElementById('s-cov-p').textContent = (cov/100*55).toFixed(1);
+    document.getElementById('s-cov-p').className = cov>90?'m-green':cov>70?'m-yellow':'m-red';
+    document.getElementById('s-ret').textContent = s.is_done ? 'Yes' : '--';
+    document.getElementById('s-ret-p').textContent = s.is_done ? '20.0' : '-';
+    document.getElementById('s-ret-p').className = s.is_done?'m-green':'m-red';
+    document.getElementById('s-cek').textContent = cek.toFixed(4);
+    document.getElementById('s-cek-p').textContent = (cek*15).toFixed(2);
+    document.getElementById('s-cek-p').className = 'm-purple';
+}
+
+function poll() {
+    if (!simRunning) return;
+    fetch('/api/state').then(r=>r.json()).then(s=>{
+        if (!simRunning) return;
+        drawGrid(s); drawMetrics(s);
+        if (s.is_done) {
+            setStatus('done', 'Complete - '+((s.coverage||0)*100).toFixed(1)+'% coverage');
+            document.getElementById('btn-start').disabled = false;
+            document.getElementById('btn-stop').disabled = true;
+            simRunning = false;
+            if (pollId) { clearInterval(pollId); pollId=null; }
+        } else if (s.is_running) {
+            setStatus('active', 'Exploring...');
+            document.getElementById('btn-start').disabled = true;
+            document.getElementById('btn-stop').disabled = false;
+        }
+    }).catch(()=>{});
+}
+
+function doStart() {
+    if (simRunning) return;
+    const p = {
+        grid_size: +document.getElementById('s-grid').value,
+        energy: +document.getElementById('s-eng').value,
+        obstacle: +document.getElementById('s-obs').value/100,
+        sensing: +document.getElementById('s-sense').value,
+        speed: +document.getElementById('s-speed').value,
+        seed: +document.getElementById('s-seed').value
+    };
+    gridSz = p.grid_size; buildGrid(gridSz);
+    simRunning = true;
+    fetch('/api/start', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(p)})
+    .then(()=>{ setStatus('active','Starting...'); if(!pollId) pollId=setInterval(poll,80); })
+    .catch(()=>{ simRunning=false; });
+}
+
+function doStop() {
+    if (!simRunning) return;
+    fetch('/api/stop',{method:'POST'}).then(()=>{
+        simRunning = false;
+        if (pollId) { clearInterval(pollId); pollId=null; }
+        setStatus('done','Stopped');
+        document.getElementById('btn-start').disabled = false;
+        document.getElementById('btn-stop').disabled = true;
+    });
+}
+
+function doReset() {
+    simRunning = false;
+    if (pollId) { clearInterval(pollId); pollId=null; }
+    fetch('/api/reset',{method:'POST'}).then(()=>{
+        buildGrid(gridSz);
+        setStatus('idle','Ready');
+        document.getElementById('btn-start').disabled = false;
+        document.getElementById('btn-stop').disabled = true;
+        document.getElementById('m-cov').innerHTML='0.0<span class="metric-unit">%</span>';
+        document.getElementById('bar-cov').style.width='0%';
+        document.getElementById('m-eng').innerHTML='400<span class="metric-unit"> / 400</span>';
+        document.getElementById('bar-eng').style.width='100%';
+        document.getElementById('m-steps').textContent='0';
+        document.getElementById('m-rev').innerHTML='0<span class="metric-unit"> / 0</span>';
+        document.getElementById('s-cov').textContent='--';
+        document.getElementById('s-cov-p').textContent='-';
+        document.getElementById('s-ret').textContent='--';
+        document.getElementById('s-ret-p').textContent='-';
+        document.getElementById('s-cek').textContent='--';
+        document.getElementById('s-cek-p').textContent='-';
+        document.getElementById('s-run').textContent='-';
+    });
+}
+
+buildGrid(30);
+</script>
+</body>
+</html>

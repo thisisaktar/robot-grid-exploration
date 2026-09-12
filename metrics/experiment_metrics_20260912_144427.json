@@ -1,0 +1,11 @@
+{
+  "num_experiments": 10,
+  "mean_coverage": 0.9733710082867804,
+  "std_coverage": 0.018513739369217113,
+  "min_coverage": 0.9409282700421941,
+  "max_coverage": 0.9930939226519337,
+  "mean_energy_ratio": 0.043,
+  "successful_return_fraction": 1.0,
+  "mean_cek": 0.04189096610083316,
+  "mean_runtime": 1.3796852588653565
+}
